@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() { return request.auth != null; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 256; }
+    
+    function isValidBookmark(data) {
+      return data.userId is string &&
+             data.diseaseId is string &&
+             data.createdAt != null;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    match /bookmarks/{bookmarkId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if isSignedIn() && isValidId(bookmarkId) && (
+        (request.method == 'create' && incoming().userId == request.auth.uid && isValidBookmark(incoming())) ||
+        (request.method == 'update' && existing().userId == request.auth.uid && incoming().userId == request.auth.uid && isValidBookmark(incoming())) ||
+        (request.method == 'delete' && resource.data.userId == request.auth.uid)
+      );
+    }
+  }
+}
