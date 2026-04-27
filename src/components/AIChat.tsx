@@ -185,7 +185,7 @@ export default function AIChat({ onClose, currentCat, selectedDisease }: AIChatP
       setMessages(prev => [...prev, { 
         id: `err-${Date.now()}`,
         role: 'system', 
-        text: "⚠️ Koneksi ke AI terputus. Pastikan API Key Anda sudah dimasukkan di Netlify." 
+        text: "⚠️ Koneksi ke AI terputus. Pastikan GEMINI_API_KEY sudah diisi di Vercel Dashboard." 
       }]);
     } finally {
       setLoading(false);
