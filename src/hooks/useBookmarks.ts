@@ -40,14 +40,26 @@ export function useBookmarks() {
 
   useEffect(() => {
     if (!uid) return;
-    const q = query(
-      collection(db, 'bookmarks', uid, 'items'),
-      orderBy('createdAt', 'desc')
-    );
+
+    // Tanpa orderBy di query — sort di client-side
+    // Alasan: serverTimestamp() = null di client saat pending,
+    // orderBy Firestore skip dokumen dengan field null → bookmark hilang sampai refresh
+    const q = query(collection(db, 'bookmarks', uid, 'items'));
+
     const unsub = onSnapshot(
       q,
+      { includeMetadataChanges: false },
       (snap) => {
-        setBookmarks(snap.docs.map(d => ({ id: d.id, ...d.data() } as Bookmark)));
+        const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as Bookmark));
+
+        // Sort client-side: handle null createdAt (pending serverTimestamp)
+        items.sort((a, b) => {
+          const tsA = a.createdAt?.toMillis?.() ?? Date.now();
+          const tsB = b.createdAt?.toMillis?.() ?? Date.now();
+          return tsB - tsA; // desc
+        });
+
+        setBookmarks(items);
         setLoading(false);
       },
       (err) => {
@@ -70,14 +82,8 @@ export function useBookmarks() {
     await deleteDoc(doc(db, 'bookmarks', uid, 'items', id));
   }, [uid]);
 
-  /**
-   * Cek apakah suatu item sudah di-bookmark.
-   * Untuk disease: pass diseaseId
-   * Untuk chat: pass messageId (disimpan sebagai field id di Firestore)
-   */
   const findBookmark = useCallback((key: string, type: BookmarkType): Bookmark | undefined => {
     if (type === 'disease') return bookmarks.find(b => b.type === 'disease' && b.diseaseId === key);
-    // untuk chat, id Firestore == messageId
     return bookmarks.find(b => b.type === 'chat' && b.id === key);
   }, [bookmarks]);
 
